@@ -48,7 +48,7 @@ def fetch_stock_data(stock_symbol):
 
         # Extract time from the quote-market-notice div
         time_div = soup.find('div', {'id': 'quote-market-notice'})
-        time = (time_div).text if time_div else None
+        timeStamp = (time_div).text if time_div else None
 
         # Find the <fin-streamer> tag with the data-test="qsp-price" attribute
         # Extract the price value from the tag using regex
@@ -60,7 +60,7 @@ def fetch_stock_data(stock_symbol):
         stock_data = {
             "symbol": stock_symbol,
             "price": price,
-            "time": time,
+            "time": timeStamp,
             "table1": table1_data,
             "table2": table2_data,
         }
