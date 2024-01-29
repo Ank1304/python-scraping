@@ -1,46 +1,33 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
+from flask_socketio import SocketIO, emit
 import requests
 from bs4 import BeautifulSoup
 import re
+import time
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'secret!'
+socketio = SocketIO(app)
 
-@app.route('/api/stock_data')
-def get_stock_data():
+def fetch_stock_data(stock_symbol):
     try:
-        # Get the stock symbol from the query parameters
-        stock_symbol = request.args.get('symbol', 'AMZN')
-
         # Construct the URL with the provided symbol
         url = f"https://finance.yahoo.com/quote/{stock_symbol}"
 
         # Send a GET request to Yahoo Finance
-        r = requests.get(url).text
+        headers = {'Cache-Control': 'no-cache'}
+        r = requests.get(url, headers=headers)
+        r.raise_for_status()  # Raise an exception for 4xx or 5xx status codes
 
         # Parse the HTML content using BeautifulSoup
-        soup = BeautifulSoup(r, 'html.parser')
-        
-        # Find all tbody elements on the page
-        alldata = soup.find_all("tbody")
-
-         # Find the <fin-streamer> tag with the data-test="qsp-price" attribute
-        fin_streamer = soup.find('fin-streamer', {'data-test': 'qsp-price'})
-        # Extract the price value from the tag
-        price = fin_streamer.text if fin_streamer else None
-        time_div = soup.find('div', {'id': 'quote-market-notice'})
-        time_match = re.search(r'(\d{2}:\d{2}[APM]+ [APM]+)', time_div.text) if time_div else None
-        time = time_match.group(1) if time_match else None
-        # Combine the extracted data from both tables
-        stock_data = {
-            "symbol": stock_symbol,
-            "price": price,
-            "time": time
-        }
-
+        soup = BeautifulSoup(r.text, 'html.parser')
 
         # Initialize variables to store table data
         table1_data = {}
         table2_data = {}
+
+        # Find all tbody elements on the page
+        alldata = soup.find_all("tbody")
 
         # Extract data from the first tbody (if available)
         if alldata:
@@ -58,20 +45,58 @@ def get_stock_data():
                 if len(table2_td) >= 2:
                     table2_data[table2_td[0].text] = table2_td[1].text
 
-        # Combine the extracted data from both tables
+        # Extract time from the quote-market-notice div
+        time_div = soup.find('div', {'id': 'quote-market-notice'})
+        time = (time_div).text if time_div else None
+
+        # Find the <fin-streamer> tag with the data-test="qsp-price" attribute
+        # Extract the price value from the tag using regex
+        fin_streamer = soup.find('fin-streamer', {'data-test': 'qsp-price'})
+        price_match = re.search(r'value="([\d.]+)"', str(fin_streamer)) if fin_streamer else None
+        price = price_match.group(1) if price_match else None
+
+        # Combine the extracted data
         stock_data = {
             "symbol": stock_symbol,
+            "price": price,
+            "time": time,
             "table1": table1_data,
             "table2": table2_data,
-            "stock_data": stock_data
         }
 
-        # Return the extracted data in JSON format
-        return jsonify(stock_data), 200
+        return stock_data
+
+    except Exception as e:
+        raise e
+
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
+
+@socketio.on('get_stock_data')
+def get_stock_data(symbol):
+    try:
+        while True:
+            # Fetch fresh stock data
+            stock_data = fetch_stock_data(symbol)
+
+            # Emit the extracted data to the client
+            emit('stock_data', stock_data)
+
+            # Sleep for a while before fetching data again
+            time.sleep(5)  # Adjust the interval as needed
 
     except Exception as e:
         error_message = {"error": str(e)}
-        return jsonify(error_message), 500
+        emit('stock_data_error', error_message)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    socketio.run(app, debug=True)
