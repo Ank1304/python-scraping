@@ -24,15 +24,16 @@ def get_stock_data():
 
          # Find the <fin-streamer> tag with the data-test="qsp-price" attribute
         fin_streamer = soup.find('fin-streamer', {'data-test': 'qsp-price'})
-        timeStamp = soup.find('quote-market-notice');
         # Extract the price value from the tag
         price = fin_streamer.text if fin_streamer else None
-        time_Stamp = timeStamp.text if timeStamp else None
+        time_div = soup.find('div', {'id': 'quote-market-notice'})
+        time_match = re.search(r'(\d{2}:\d{2}[APM]+ [APM]+)', time_div.text) if time_div else None
+        time = time_match.group(1) if time_match else None
         # Combine the extracted data from both tables
         stock_data = {
             "symbol": stock_symbol,
             "price": price,
-            "time_Stamp": time_Stamp
+            "time": time
         }
 
 
