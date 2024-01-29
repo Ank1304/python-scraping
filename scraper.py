@@ -18,20 +18,21 @@ def get_stock_data():
 
         # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(r, 'html.parser')
-
+        
         # Find all tbody elements on the page
         alldata = soup.find_all("tbody")
 
          # Find the <fin-streamer> tag with the data-test="qsp-price" attribute
         fin_streamer = soup.find('fin-streamer', {'data-test': 'qsp-price'})
-
+        timeStamp = soup.find('quote-market-notice');
         # Extract the price value from the tag
         price = fin_streamer.text if fin_streamer else None
-
+        time_Stamp = timeStamp.text if timeStamp else None
         # Combine the extracted data from both tables
         stock_data = {
             "symbol": stock_symbol,
-            "price": price
+            "price": price,
+            "time_Stamp": time_Stamp
         }
 
 
