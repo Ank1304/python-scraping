@@ -6,7 +6,7 @@ import re
 import time
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
+app.config['SECRET_KEY'] = os.urandom(24)
 socketio = SocketIO(app)
 
 def fetch_stock_data(stock_symbol):
