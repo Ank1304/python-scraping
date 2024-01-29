@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import time
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
